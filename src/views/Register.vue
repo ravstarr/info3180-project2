@@ -1,6 +1,9 @@
 <script setup>
 import { ref } from 'vue'
 
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 const form = ref({
   name: '',
   email: '',
@@ -14,7 +17,7 @@ const form = ref({
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const handleRegister = () => {
+const handleRegister = async () => {
   errorMessage.value = ''
   successMessage.value = ''
 
@@ -40,11 +43,57 @@ const handleRegister = () => {
     return
   }
 
-  successMessage.value = 'Registration form submitted successfully.'
-  console.log('Register data:', {
-    ...form.value,
-    interests: interestList
-  })
+  try {
+    // 1. Register User
+    const regResponse = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+
+    const regData = await regResponse.json()
+    if (!regResponse.ok) {
+      errorMessage.value = regData.error || 'Registration failed.'
+      return
+    }
+
+    // 2. Login User (to get session for profile creation)
+    const loginResponse = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+
+    if (!loginResponse.ok) {
+      errorMessage.value = 'Registration successful, but login failed. Please login manually.'
+      return
+    }
+
+    // 3. Create Profile
+    const profResponse = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        age: parseInt(age),
+        location,
+        interests: interestList
+      })
+    })
+
+    if (profResponse.ok) {
+      successMessage.value = 'Account created successfully! Redirecting...'
+      setTimeout(() => {
+        router.push('/')
+      }, 1500)
+    } else {
+      const profData = await profResponse.json()
+      errorMessage.value = profData.error || 'Failed to create profile.'
+    }
+  } catch (error) {
+    errorMessage.value = 'An error occurred during registration.'
+    console.error(error)
+  }
 }
 </script>
 

@@ -1,18 +1,65 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const profile = ref({
-  name: 'Daniel',
-  age: 23,
-  location: 'Kingston',
-  bio: 'I enjoy music, sports, and trying new places.',
-  interests: 'Music, Football, Swimming'
+  name: '',
+  age: 0,
+  location: '',
+  bio: '',
+  interests: ''
 })
 
 const message = ref('')
+const errorMessage = ref('')
 
-const saveProfile = () => {
-  message.value = 'Profile updated successfully.'
+onMounted(async () => {
+  try {
+    const response = await fetch('/api/me')
+    if (response.ok) {
+      const data = await response.json()
+      if (data.profile) {
+        profile.value = {
+          ...data.profile,
+          interests: (data.profile.interests || []).join(', ')
+        }
+      }
+    } else if (response.status === 401) {
+      errorMessage.value = 'Please login to view your profile.'
+    }
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+  }
+})
+
+const saveProfile = async () => {
+  message.value = ''
+  errorMessage.value = ''
+  
+  const interestList = profile.value.interests
+    .split(',')
+    .map(i => i.trim())
+    .filter(i => i !== '')
+
+  try {
+    const response = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...profile.value,
+        interests: interestList
+      })
+    })
+
+    if (response.ok) {
+      message.value = 'Profile updated successfully.'
+    } else {
+      const data = await response.json()
+      errorMessage.value = data.error || 'Failed to update profile.'
+    }
+  } catch (error) {
+    errorMessage.value = 'An error occurred while saving.'
+    console.error(error)
+  }
 }
 </script>
 
@@ -47,6 +94,7 @@ const saveProfile = () => {
       </div>
 
       <p v-if="message" class="success-message">{{ message }}</p>
+      <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
       <button @click="saveProfile" class="save-button">Save Profile</button>
 
@@ -140,6 +188,12 @@ textarea:focus {
   color: white;
   font-size: 1rem;
   cursor: pointer;
+}
+
+.error-message {
+  color: #c0392b;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
 }
 
 .success-message {

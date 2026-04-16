@@ -1,38 +1,62 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
-const profiles = ref([
-  {
-    id: 1,
-    name: 'Alicia',
-    age: 22,
-    location: 'Kingston',
-    interests: ['Music', 'Travel', 'Movies']
-  },
-  {
-    id: 2,
-    name: 'Jordan',
-    age: 24,
-    location: 'Montego Bay',
-    interests: ['Football', 'Gym', 'Gaming']
-  },
-  {
-    id: 3,
-    name: 'Naomi',
-    age: 21,
-    location: 'Mandeville',
-    interests: ['Reading', 'Nature', 'Photography']
-  }
-])
-
+const profiles = ref([])
 const message = ref('')
+const errorMessage = ref('')
 
-const like = (name) => {
-  message.value = `You liked ${name}`
+const fetchPotentialMatches = async () => {
+  try {
+    const response = await fetch('/api/potential-matches')
+    if (response.ok) {
+      profiles.value = await response.json()
+    } else if (response.status === 401) {
+      errorMessage.value = 'Please login to see potential matches.'
+    } else {
+      const data = await response.json()
+      errorMessage.value = data.error || 'Failed to fetch matches.'
+    }
+  } catch (error) {
+    console.error('Error fetching potential matches:', error)
+    errorMessage.value = 'An error occurred while fetching profiles.'
+  }
 }
 
-const pass = (name) => {
-  message.value = `You passed ${name}`
+onMounted(() => {
+  fetchPotentialMatches()
+})
+
+const like = async (profile) => {
+  try {
+    const response = await fetch(`/api/like/${profile.user_id}`, {
+      method: 'POST'
+    })
+    const data = await response.json()
+    if (response.ok) {
+      message.value = data.message || `You liked ${profile.name}`
+      // Remove from list
+      profiles.value = profiles.value.filter(p => p.user_id !== profile.user_id)
+    } else {
+      message.value = data.error || 'Failed to like user.'
+    }
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+const pass = async (profile) => {
+  try {
+    const response = await fetch(`/api/pass/${profile.user_id}`, {
+      method: 'POST'
+    })
+    if (response.ok) {
+      message.value = `You passed ${profile.name}`
+      // Remove from list
+      profiles.value = profiles.value.filter(p => p.user_id !== profile.user_id)
+    }
+  } catch (error) {
+    console.error(error)
+  }
 }
 </script>
 
@@ -41,9 +65,10 @@ const pass = (name) => {
     <h1>Discover</h1>
 
     <p v-if="message" class="message">{{ message }}</p>
+    <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-    <div class="grid">
-      <div v-for="profile in profiles" :key="profile.id" class="card">
+    <div v-if="profiles.length > 0" class="grid">
+      <div v-for="profile in profiles" :key="profile.user_id" class="card">
         <div class="avatar">
           {{ profile.name.charAt(0) }}
         </div>
@@ -58,10 +83,14 @@ const pass = (name) => {
         </div>
 
         <div class="buttons">
-          <button class="pass" @click="pass(profile.name)">Pass</button>
-          <button class="like" @click="like(profile.name)">Like</button>
+          <button class="pass" @click="pass(profile)">Pass</button>
+          <button class="like" @click="like(profile)">Like</button>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="!errorMessage" class="no-matches">
+      <p>No more potential matches found. Check back later!</p>
     </div>
   </div>
 </template>
@@ -74,10 +103,22 @@ const pass = (name) => {
   text-align: center;
 }
 
+.error-message {
+  color: #c0392b;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
 .message {
   margin-bottom: 20px;
   font-weight: 600;
   color: #1e8449;
+}
+
+.no-matches {
+  margin-top: 40px;
+  color: #666;
+  font-size: 1.1rem;
 }
 
 .grid {

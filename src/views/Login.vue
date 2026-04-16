@@ -1,12 +1,15 @@
 <script setup>
 import { ref } from 'vue'
 
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 
-const handleLogin = () => {
+const handleLogin = async () => {
   errorMessage.value = ''
   successMessage.value = ''
 
@@ -15,11 +18,32 @@ const handleLogin = () => {
     return
   }
 
-  successMessage.value = 'Login form submitted successfully.'
-  console.log('Login data:', {
-    email: email.value,
-    password: password.value
-  })
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email.value,
+        password: password.value
+      })
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      successMessage.value = 'Login successful! Redirecting...'
+      setTimeout(() => {
+        router.push('/')
+      }, 1000)
+    } else {
+      errorMessage.value = data.error || 'Login failed.'
+    }
+  } catch (error) {
+    errorMessage.value = 'An error occurred during login.'
+    console.error(error)
+  }
 }
 </script>
 
