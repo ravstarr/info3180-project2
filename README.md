@@ -1,71 +1,142 @@
-# INFO3180 VueJS and Flask Starter
+#VueJS App– Dating Application
 
-## API Endpoints
+##  Project Description
 
-### Authentication
-- `POST /register` – Register a new user. Body: `{"email": "...", "password": "..."}`
-- `POST /login` – Login and start session. Body: `{"email": "...", "password": "..."}`
-- `POST /logout` – Logout and destroy session.
-- `GET /me` – Get current user details and profile.
+VueJS App is a full-stack dating web application built with **Vue 3 (frontend)** and **Flask (backend API)**. The platform allows users to create profiles, discover compatible matches based on shared criteria, and communicate through a messaging system once a mutual match is established.
 
-### Profile Management
-- `GET /profile/<id>` – Get a user's profile.
-- `PUT /profile` – Create or update your own profile. Body: `{"name": "...", "age": 25, "bio": "...", "location": "...", "interests": ["..."], "gender": "...", "looking_for": "...", "is_public": true}`
-- `POST /profile/photo` – Upload a profile picture. Form-data: `photo: <file>`
-
-### Matching System
-- `GET /matches` – List of mutual matches.
-- `GET /potential-matches` – Ranked list of potential matches based on location, age, and interests.
-- `POST /like/<user_id>` – Like a user. Returns "matched" if mutual.
-- `POST /pass/<user_id>` – Pass on a user.
-
-### Messaging
-- `GET /messages/<match_id>` – Get conversation history for a match.
-- `POST /messages/<match_id>` – Send a message. Body: `{"content": "..."}`
-- `GET /conversations` – List of all active conversations with the last message.
-
-### Search & Discovery
-- `GET /search?location=...&min_age=...&max_age=...&interests=...` – Search for users with filters.
-- `GET /favorites` – List your bookmarked profiles.
-- `POST /favorites/<user_id>` – Toggle bookmark for a profile.
+The application demonstrates key concepts such as RESTful API development, relational database design, authentication, and frontend-backend integration.
 
 ---
 
-This template should help get you started developing with Vue 3 on the frontend and Flask as an API on the backend.
+## Team Members & Roles
 
-## Recommended IDE Setup
+| Name           | Role            | Responsibilities                                     |
+| -------------- | --------------- | ---------------------------------------------------- |
+| Nyishia Robinson | Project Manager | Coordinated tasks, ensured deadlines were met and Database  |
+| Ravaughn Marsh   | Backend Lead    | Developed Flask API, database models, authentication |
+| Daniel England    | Frontend Lead   | Built Vue components, UI/UX design                   |
+| Ivanna Buckley | QA/Testing Lead | Testing, validation, documentation                   |
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=johnsoncodehk.volar) (and disable Vetur) + [TypeScript Vue Plugin (Volar)](https://marketplace.visualstudio.com/items?itemName=johnsoncodehk.vscode-typescript-vue-plugin).
+---
 
-## Customize configuration
+## Setup Instructions
 
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+Follow these steps to run the application locally:
 
-## Project Setup
+### 1. Clone Repository
 
-```sh
-npm install
+```bash
+git clone https://github.com/ravstarr/info3180-project2.git
+cd info3180-project
 ```
 
-### Compile and Hot-Reload for Development
-
-```sh
-npm run dev
-```
-
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-## Start Flask API
-
-Remember to always create a virtual environment and install the packages in your requirements file
+### 2. Backend Setup (Flask)
 
 ```bash
 python -m venv venv
+```
+
+Activate virtual environment:
+
+* Mac/Linux:
+
+```bash
 source venv/bin/activate
+```
+
+* Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
+```
+
+Set up database:
+
+```bash
+flask db init
+flask db migrate
+flask db upgrade
+```
+
+Run backend server:
+
+```bash
 flask --app app --debug run
 ```
+
+Backend runs on: http://127.0.0.1:5000
+
+---
+
+### 3. Frontend Setup (Vue 3)
+
+Open a new terminal:
+
+```bash
+npm install
+npm run dev
+```
+
+Frontend runs on: http://127.0.0.1:5173
+
+---
+
+## 🔌 API Documentation
+
+### Authentication
+
+| Endpoint         | Method | Description       | Request Body    | Response                      |
+| ---------------- | ------ | ----------------- | --------------- | ----------------------------- |
+| /api/v1/register | POST   | Register new user | email, password | 201 Created / 400 Bad Request |
+| /api/v1/login    | POST   | Login user        | email, password | 200 OK / 401 Unauthorized     |
+| /api/v1/logout   | POST   | Logout user       | None            | 200 OK                        |
+
+---
+
+### Profile Management
+
+| Endpoint              | Method | Description                  |
+| --------------------- | ------ | ---------------------------- |
+| /api/v1/profile       | GET    | Fetch logged-in user profile |
+| /api/v1/profile       | PUT    | Update user profile          |
+| /api/v1/profile/image | POST   | Upload profile image         |
+
+---
+
+### Matching System
+
+| Endpoint        | Method | Description               |
+| --------------- | ------ | ------------------------- |
+| /api/v1/like    | POST   | Like another user         |
+| /api/v1/dislike | POST   | Dislike a user            |
+| /api/v1/matches | GET    | Get all matches           |
+| /api/v1/browse  | GET    | Browse users with filters |
+
+---
+
+### Messaging
+
+| Endpoint                    | Method | Description                    |
+| --------------------------- | ------ | ------------------------------ |
+| /api/v1/messages            | POST   | Send message (only if matched) |
+| /api/v1/messages/{match_id} | GET    | Get messages for a match       |
+
+---
+
+## ⚠️ Known Issues / Limitations
+* There was minimal major issues other than the UI responsiveness may have minor issues on very small screens. 
+
+---
+
+## Future Improvements For the Application
+* Add email verification system
+* Improve matching algorithm with weighted scoring
+* Add user blocking/reporting feature
+
+---
