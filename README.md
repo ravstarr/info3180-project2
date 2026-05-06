@@ -176,7 +176,7 @@ Frontend runs on: http://127.0.0.1:5173
 
 ---
 
-## 🔌 API Documentation
+## API Documentation
 
 ### Authentication
 
@@ -218,7 +218,7 @@ Frontend runs on: http://127.0.0.1:5173
 
 ---
 
-## ⚠️ Known Issues / Limitations
+## Limitations
 * There was minimal major issues other than the UI responsiveness may have minor issues on very small screens. 
 
 ---
