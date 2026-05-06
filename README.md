@@ -1,8 +1,8 @@
-#VueJS App– Dating Application
+#DriftDater-Dating Application
 
 ##  Project Description
 
-VueJS App is a full-stack dating web application built with **Vue 3 (frontend)** and **Flask (backend API)**. The platform allows users to create profiles, discover compatible matches based on shared criteria, and communicate through a messaging system once a mutual match is established.
+Drift Dater App is a full-stack dating web application built with **Vue 3 (frontend)** and **Flask (backend API)**. The platform allows users to create profiles, discover compatible matches based on shared criteria, and communicate through a messaging system once a mutual match is established.
 
 The application demonstrates key concepts such as RESTful API development, relational database design, authentication, and frontend-backend integration.
 
