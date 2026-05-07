@@ -1,72 +1,160 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
+const API_BASE_URL = 'http://127.0.0.1:5000'
+
 const profile = ref({
   name: '',
   age: 0,
   location: '',
   bio: '',
-  interests: ''
+  interests: '',
+  profile_pic_url: ''
 })
 
 const message = ref('')
 const errorMessage = ref('')
+const loading = ref(false)
 
-onMounted(async () => {
+const getProfilePhoto = () => {
+  if (!profile.value.profile_pic_url) return null
+  return `${API_BASE_URL}/uploads/${profile.value.profile_pic_url}`
+}
+
+const loadProfile = async () => {
+  loading.value = true
+  errorMessage.value = ''
+
   try {
-    const response = await fetch('/api/me')
-    if (response.ok) {
-      const data = await response.json()
-      if (data.profile) {
-        profile.value = {
-          ...data.profile,
-          interests: (data.profile.interests || []).join(', ')
-        }
+    const response = await fetch(`${API_BASE_URL}/me`, {
+      credentials: 'include'
+    })
+
+    const data = await response.json()
+
+    if (response.ok && data.profile) {
+      profile.value = {
+        name: data.profile.name || '',
+        age: data.profile.age || 0,
+        location: data.profile.location || '',
+        bio: data.profile.bio || '',
+        interests: Array.isArray(data.profile.interests)
+          ? data.profile.interests.join(', ')
+          : data.profile.interests || '',
+        profile_pic_url: data.profile.profile_pic_url || ''
       }
     } else if (response.status === 401) {
       errorMessage.value = 'Please login to view your profile.'
     }
   } catch (error) {
-    console.error('Error fetching profile:', error)
+    console.error(error)
+    errorMessage.value = 'Could not connect to backend.'
+  } finally {
+    loading.value = false
   }
-})
+}
+
+const uploadPhoto = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  message.value = ''
+  errorMessage.value = ''
+
+  const formData = new FormData()
+  formData.append('photo', file)
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/profile/photo`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      message.value = data.message || 'Photo uploaded successfully.'
+      await loadProfile()
+    } else {
+      errorMessage.value = data.error || 'Failed to upload photo.'
+    }
+  } catch (error) {
+    console.error(error)
+    errorMessage.value = 'Could not upload photo.'
+  }
+}
 
 const saveProfile = async () => {
   message.value = ''
   errorMessage.value = ''
-  
+
   const interestList = profile.value.interests
     .split(',')
     .map(i => i.trim())
     .filter(i => i !== '')
 
   try {
-    const response = await fetch('/api/profile', {
+    const response = await fetch(`${API_BASE_URL}/profile`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
       body: JSON.stringify({
-        ...profile.value,
+        name: profile.value.name,
+        age: Number(profile.value.age),
+        location: profile.value.location,
+        bio: profile.value.bio,
         interests: interestList
       })
     })
 
+    const data = await response.json()
+
     if (response.ok) {
       message.value = 'Profile updated successfully.'
+      await loadProfile()
     } else {
-      const data = await response.json()
       errorMessage.value = data.error || 'Failed to update profile.'
     }
   } catch (error) {
-    errorMessage.value = 'An error occurred while saving.'
     console.error(error)
+    errorMessage.value = 'An error occurred while saving.'
   }
 }
+
+onMounted(loadProfile)
 </script>
 
 <template>
   <div class="profile-page">
     <div class="profile-card">
       <h1>My Profile</h1>
+
+      <p v-if="loading">Loading profile...</p>
+
+      <div class="photo-section">
+        <img
+          v-if="getProfilePhoto()"
+          :src="getProfilePhoto()"
+          alt="Profile photo"
+          class="profile-photo"
+        />
+
+        <div v-else class="avatar">
+          {{ profile.name?.charAt(0) || '?' }}
+        </div>
+
+        <label class="upload-label">
+          Upload Profile Picture
+          <input
+            type="file"
+            accept="image/*"
+            @change="uploadPhoto"
+          />
+        </label>
+      </div>
 
       <div class="form-group">
         <label>Name</label>
@@ -90,21 +178,34 @@ const saveProfile = async () => {
 
       <div class="form-group">
         <label>Interests</label>
-        <input v-model="profile.interests" type="text" />
+        <input
+          v-model="profile.interests"
+          type="text"
+          placeholder="music, movies, football"
+        />
       </div>
 
       <p v-if="message" class="success-message">{{ message }}</p>
       <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
 
-      <button @click="saveProfile" class="save-button">Save Profile</button>
+      <button @click="saveProfile" class="save-button">
+        Save Profile
+      </button>
 
       <hr />
 
       <h2>Profile Preview</h2>
 
       <div class="preview-card">
-        <div class="avatar">
-          {{ profile.name.charAt(0) }}
+        <img
+          v-if="getProfilePhoto()"
+          :src="getProfilePhoto()"
+          alt="Profile photo"
+          class="preview-photo"
+        />
+
+        <div v-else class="avatar">
+          {{ profile.name?.charAt(0) || '?' }}
         </div>
 
         <h3>{{ profile.name }}, {{ profile.age }}</h3>
@@ -113,7 +214,7 @@ const saveProfile = async () => {
 
         <div class="interests">
           <span
-            v-for="i in profile.interests.split(',')"
+            v-for="i in profile.interests.split(',').filter(i => i.trim() !== '')"
             :key="i"
             class="tag"
           >
@@ -130,7 +231,7 @@ const saveProfile = async () => {
   padding: 40px 20px;
   display: flex;
   justify-content: center;
-  background-color: #f4f7fb;
+  background: #fff5f7;
   min-height: 100vh;
 }
 
@@ -151,6 +252,49 @@ h1 {
 h2 {
   text-align: center;
   margin: 20px 0 16px;
+}
+
+.photo-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.avatar,
+.profile-photo,
+.preview-photo {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+}
+
+.avatar {
+  background: #4a90e2;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.profile-photo,
+.preview-photo {
+  object-fit: cover;
+  display: block;
+}
+
+.upload-label {
+  display: inline-block;
+  padding: 9px 12px;
+  background: #eef4ff;
+  background: #e85d75;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-label input {
+  display: none;
 }
 
 .form-group {
@@ -184,7 +328,7 @@ textarea:focus {
   padding: 12px;
   border: none;
   border-radius: 8px;
-  background-color: #4a90e2;
+  background: #e85d75;
   color: white;
   font-size: 1rem;
   cursor: pointer;
@@ -213,19 +357,6 @@ hr {
   border-radius: 12px;
   background: #f9fbff;
   text-align: center;
-}
-
-.avatar {
-  width: 60px;
-  height: 60px;
-  margin: 0 auto 10px;
-  border-radius: 50%;
-  background: #4a90e2;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
 }
 
 .location {

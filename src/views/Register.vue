@@ -161,7 +161,7 @@ const handleRegister = async () => {
 .register-card {
   width: 100%;
   max-width: 420px;
-  background: white;
+  background: #fff5f7;
   padding: 30px;
   border-radius: 14px;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
@@ -204,7 +204,7 @@ input:focus {
   padding: 12px;
   border: none;
   border-radius: 8px;
-  background-color: #4a90e2;
+  background: #e85d75;
   color: white;
   font-size: 1rem;
   cursor: pointer;

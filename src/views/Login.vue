@@ -1,13 +1,12 @@
 <script setup>
 import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
+const loading = ref(false)
 
 const handleLogin = async () => {
   errorMessage.value = ''
@@ -19,11 +18,14 @@ const handleLogin = async () => {
   }
 
   try {
-    const response = await fetch('/api/login', {
+    loading.value = true
+
+    const response = await fetch('http://127.0.0.1:5000/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
+      credentials: 'include',
       body: JSON.stringify({
         email: email.value,
         password: password.value
@@ -34,15 +36,18 @@ const handleLogin = async () => {
 
     if (response.ok) {
       successMessage.value = 'Login successful! Redirecting...'
+
       setTimeout(() => {
-        router.push('/')
-      }, 1000)
+        window.location.href = '/discover'
+      }, 500)
     } else {
       errorMessage.value = data.error || 'Login failed.'
     }
   } catch (error) {
-    errorMessage.value = 'An error occurred during login.'
     console.error(error)
+    errorMessage.value = 'Could not connect to the backend server.'
+  } finally {
+    loading.value = false
   }
 }
 </script>
@@ -54,30 +59,24 @@ const handleLogin = async () => {
       <p class="subtitle">Sign in to your DriftDater account</p>
 
       <form @submit.prevent="handleLogin" class="login-form">
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input
-            id="email"
-            v-model="email"
-            type="email"
-            placeholder="Enter your email"
-          />
-        </div>
+        <label>Email</label>
+        <input v-model="email" type="email" placeholder="Enter your email" />
 
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Enter your password"
-          />
-        </div>
+        <label>Password</label>
+        <input v-model="password" type="password" placeholder="Enter your password" />
 
         <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
         <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
 
-        <button type="submit" class="login-button">Login</button>
+        <div class="auth-actions">
+          <button type="submit" class="login-button" :disabled="loading">
+            {{ loading ? 'Logging in...' : 'Login' }}
+          </button>
+
+          <RouterLink to="/register" class="register-link">
+            Register
+          </RouterLink>
+        </div>
       </form>
     </div>
   </div>
@@ -93,9 +92,10 @@ const handleLogin = async () => {
 .login-card {
   width: 100%;
   max-width: 420px;
-  background: white;
+  background: #fff5f7;
   padding: 32px;
   border-radius: 16px;
+  border: 1px solid #1f1f1f;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
 }
 
@@ -114,53 +114,68 @@ h1 {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
+  gap: 14px;
 }
 
 label {
-  margin-bottom: 8px;
   font-weight: 600;
 }
 
 input {
   padding: 12px 14px;
-  border: 1px solid #ccc;
+  border: 1px solid #1f1f1f;
   border-radius: 10px;
   font-size: 1rem;
 }
 
-input:focus {
-  outline: none;
-  border-color: #4a90e2;
+.auth-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
 }
 
-.login-button {
+.login-button,
+.register-link {
+  flex: 1;
   padding: 12px;
-  border: none;
   border-radius: 10px;
-  background-color: #4a90e2;
-  color: white;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
+  text-align: center;
+}
+
+.login-button {
+  border: none;
+  background-color: #e85d75;
+  color: white;
 }
 
 .login-button:hover {
-  opacity: 0.95;
+  background-color: #d94f70;
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.register-link {
+  text-decoration: none;
+  background: white;
+  color: #d94f70;
+  border: 1px solid #d94f70;
+}
+
+.register-link:hover {
+  background: #ffe3ea;
 }
 
 .error-message {
   color: #c0392b;
-  font-size: 0.95rem;
 }
 
 .success-message {
   color: #1e8449;
-  font-size: 0.95rem;
 }
 </style>

@@ -6,11 +6,12 @@ This file creates your application.
 """
 
 from app import app, db, bcrypt
-from flask import render_template, request, jsonify, send_file, session
+from flask import render_template, request, jsonify, send_file, session, send_from_directory
 from .models import User, Profile, Match, Message, Favorite
 from functools import wraps
 import os
 from werkzeug.utils import secure_filename
+from datetime import datetime
 
 # --- Helper Decorator ---
 def login_required(f):
@@ -74,31 +75,47 @@ def update_profile():
 def upload_photo():
     if 'photo' not in request.files:
         return jsonify({"error": "No photo part"}), 400
-    
+
     file = request.files['photo']
+
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
-    
-    if file:
-        filename = secure_filename(file.filename)
-        # Unique filename using user_id
-        user_id = session['user_id']
-        ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
-        new_filename = f"user_{user_id}_{int(datetime.now().timestamp())}.{ext}"
-        
-        upload_folder = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder)
-        
-        file.save(os.path.join(upload_folder, new_filename))
-        
-        user = User.query.get(user_id)
-        if user.profile:
-            user.profile.profile_pic_url = new_filename
-            db.session.commit()
-            return jsonify({"message": "Photo uploaded successfully", "filename": new_filename}), 200
-        else:
-            return jsonify({"error": "Profile must be created before uploading photo"}), 400
+
+    filename = secure_filename(file.filename)
+
+    if '.' not in filename:
+        return jsonify({"error": "Invalid file type"}), 400
+
+    ext = filename.rsplit('.', 1)[1].lower()
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+    if ext not in allowed_extensions:
+        return jsonify({"error": "Only image files are allowed"}), 400
+
+    user_id = session['user_id']
+    new_filename = f"user_{user_id}_{int(datetime.now().timestamp())}.{ext}"
+
+    upload_folder = app.config['UPLOAD_FOLDER']
+
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+
+    file.save(os.path.join(upload_folder, new_filename))
+
+    user = User.query.get(user_id)
+
+    if not user.profile:
+        return jsonify({"error": "Profile must be created before uploading photo"}), 400
+
+    user.profile.profile_pic_url = new_filename
+    db.session.commit()
+
+    return jsonify({
+        "message": "Photo uploaded successfully",
+        "filename": new_filename,
+        "profile_pic_url": new_filename,
+        "url": f"/uploads/{new_filename}"
+    }), 200
 
 # --- Matching System Endpoints ---
 
@@ -125,90 +142,125 @@ def get_matches():
              
     return jsonify(matched_users), 200
 
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
+
+@app.route('/unmatch/<int:match_id>', methods=['DELETE'])
+@login_required
+def unmatch_user(match_id):
+    user_id = session['user_id']
+
+    match = Match.query.get_or_404(match_id)
+
+    if match.user1_id != user_id and match.user2_id != user_id:
+        return jsonify({"error": "Unauthorized"}), 403
+
+    db.session.delete(match)
+    db.session.commit()
+
+    return jsonify({"message": "User unmatched successfully"}), 200
+
 @app.route('/potential-matches', methods=['GET'])
 @login_required
 def get_potential_matches():
     user_id = session['user_id']
-    user_profile = User.query.get(user_id).profile
-    if not user_profile:
+
+    current_user = User.query.get(user_id)
+
+    if not current_user or not current_user.profile:
         return jsonify({"error": "You must create a profile first"}), 400
-    
-    # Exclude users already liked/passed/matched
-    already_interacted = Match.query.filter((Match.user1_id == user_id)).with_entities(Match.user2_id).all()
-    already_interacted_ids = [u[0] for u in already_interacted]
-    already_interacted_ids.append(user_id) # exclude self
-    
-    # Matching algorithm:
-    # 1. Base criteria: Same location (if specified) and age within +/- 5 years
-    query = Profile.query.filter(~Profile.user_id.in_(already_interacted_ids))
-    
-    if user_profile.location:
-        query = query.filter(Profile.location == user_profile.location)
-    
-    min_age = user_profile.age - 5
-    max_age = user_profile.age + 5
-    query = query.filter(Profile.age >= min_age, Profile.age <= max_age)
-    
-    potential_profiles = query.all()
-    
-    # 2. Ranking by shared interests
+
+    current_profile = current_user.profile
+
+    # users already liked/passed
+    interacted = Match.query.filter_by(user1_id=user_id).all()
+
+    interacted_ids = [m.user2_id for m in interacted]
+    interacted_ids.append(user_id)
+
+    # get everyone except self and interacted users
+    profiles = Profile.query.filter(
+        ~Profile.user_id.in_(interacted_ids)
+    ).all()
+
     results = []
-    user_interests = set(user_profile.interests or [])
-    
-    for p in potential_profiles:
-        p_interests = set(p.interests or [])
-        shared = user_interests.intersection(p_interests)
-        
-        # 3. Extra criterion: same 'looking_for'
-        extra_score = 1 if p.looking_for == user_profile.looking_for else 0
-        
+
+    current_interests = set(current_profile.interests or [])
+
+    for p in profiles:
+
+        shared_interests = set(p.interests or []).intersection(current_interests)
+
+        score = len(shared_interests)
+
+        # optional location bonus
+        if current_profile.location and p.location:
+            if current_profile.location.lower() == p.location.lower():
+                score += 2
+
         results.append({
-            "profile": {
-                "id": p.id,
-                "user_id": p.user_id,
-                "name": p.name,
-                "age": p.age,
-                "bio": p.bio,
-                "location": p.location,
-                "profile_pic_url": p.profile_pic_url,
-                "interests": p.interests
-            },
-            "score": len(shared) + extra_score
+            "id": p.id,
+            "user_id": p.user_id,
+            "name": p.name,
+            "age": p.age,
+            "bio": p.bio,
+            "location": p.location,
+            "profile_pic_url": p.profile_pic_url,
+            "interests": p.interests,
+            "score": score
         })
-    
-    # Sort by score descending
-    results.sort(key=lambda x: x['score'], reverse=True)
-    
-    return jsonify([r['profile'] for r in results]), 200
+
+    # sort highest score first
+    results.sort(key=lambda x: x["score"], reverse=True)
+
+    return jsonify(results), 200
 
 @app.route('/like/<int:other_user_id>', methods=['POST'])
 @login_required
 def like_user(other_user_id):
     user_id = session['user_id']
+
     if user_id == other_user_id:
         return jsonify({"error": "Cannot like yourself"}), 400
 
-    # Check if a like/match already exists from user1 to user2
-    existing = Match.query.filter_by(user1_id=user_id, user2_id=other_user_id).first()
+    existing = Match.query.filter_by(
+        user1_id=user_id,
+        user2_id=other_user_id
+    ).first()
+
     if existing:
         return jsonify({"message": "Already liked/passed this user"}), 200
 
-    # Check if the other user has already liked the current user
-    mutual = Match.query.filter_by(user1_id=other_user_id, user2_id=user_id, status='liked').first()
-    
+    mutual = Match.query.filter_by(
+        user1_id=other_user_id,
+        user2_id=user_id,
+        status='liked'
+    ).first()
+
     if mutual:
-        # Create match record (mutual like)
         mutual.status = 'matched'
-        new_match = Match(user1_id=user_id, user2_id=other_user_id, status='matched')
-        db.session.add(new_match)
         db.session.commit()
-        return jsonify({"message": "It's a match!", "status": "matched"}), 201
-    else:
-        # Just a like
-        new_like = Match(user1_id=user_id, user2_id=other_user_id, status='liked')
-        db.session.add(new_like)
-        db.session.commit()
-        return jsonify({"message": "User liked", "status": "liked"}), 201
+
+        return jsonify({
+            "message": "It's a match!",
+            "status": "matched"
+        }), 200
+
+    new_like = Match(
+        user1_id=user_id,
+        user2_id=other_user_id,
+        status='liked'
+    )
+
+    db.session.add(new_like)
+    db.session.commit()
+
+    return jsonify({
+        "message": "User liked",
+        "status": "liked"
+    }), 201
 
 @app.route('/pass/<int:other_user_id>', methods=['POST'])
 @login_required
@@ -331,45 +383,61 @@ def get_conversations():
 @app.route('/search', methods=['GET'])
 @login_required
 def search_users():
-    location = request.args.get('location')
+    location = request.args.get('location', '').strip()
     min_age = request.args.get('min_age', type=int)
     max_age = request.args.get('max_age', type=int)
-    interests = request.args.get('interests') # comma separated
-    
+    interests = request.args.get('interests', '').strip()
+
     query = Profile.query
-    
+
     if location:
         query = query.filter(Profile.location.ilike(f"%{location}%"))
+
     if min_age:
         query = query.filter(Profile.age >= min_age)
+
     if max_age:
         query = query.filter(Profile.age <= max_age)
-    
+
     profiles = query.all()
-    
+
     if interests:
-        search_interests = [i.strip().lower() for i in interests.split(',')]
+        search_interests = [
+            i.strip().lower()
+            for i in interests.split(',')
+            if i.strip()
+        ]
+
         filtered_profiles = []
+
         for p in profiles:
-            p_interests = [i.lower() for i in (p.interests or [])]
-            if any(si in p_interests for si in search_interests):
+            p_interests = [
+                i.lower().strip()
+                for i in (p.interests or [])
+            ]
+
+            if any(si in interest for si in search_interests for interest in p_interests):
                 filtered_profiles.append(p)
+
         profiles = filtered_profiles
 
     results = []
+
     for p in profiles:
-        # Check if user is public
         user = User.query.get(p.user_id)
-        if user.is_public or p.user_id == session['user_id']:
+
+        if user and (user.is_public or p.user_id == session['user_id']):
             results.append({
                 "id": p.id,
                 "user_id": p.user_id,
                 "name": p.name,
                 "age": p.age,
                 "location": p.location,
+                "bio": p.bio,
+                "interests": p.interests,
                 "profile_pic_url": p.profile_pic_url
             })
-            
+
     return jsonify(results), 200
 
 @app.route('/favorites', methods=['GET'])
@@ -482,12 +550,8 @@ def index():
     return jsonify(message="This is the beginning of our API")
 
 
-###
-# The functions below should be applicable to all Flask apps.
-###
 
 # Here we define a function to collect form errors from Flask-WTF
-# which we can later use
 def form_errors(form):
     error_messages = []
     """Collects form errors"""
