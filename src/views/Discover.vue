@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const API_BASE_URL = 'http://127.0.0.1:5001'
+const API_BASE_URL = 'http://127.0.0.1:5000'
 
 const profiles = ref([])
 const message = ref('')
@@ -186,17 +186,18 @@ const toggleFavorite = async (profile) => {
           </span>
         </div>
 
-        <button class="favorite-btn" @click="toggleFavorite(profile)">⭐️ Favorite</button>
+        <button class="favorite-btn" @click="toggleFavorite(profile)">
+          ⭐️ Favorite
+        </button>
 
         <div class="buttons">
           <button class="pass" @click="pass(profile)">Pass</button>
           <button class="like" @click="like(profile)">Like</button>
         </div>
 
-        <button class="block-btn" @click="toggleBlockUser(profile)">🚫 Block</button>
-        </div>
-
-        <button class="block-btn" @click="toggleBlockUser(profile)">🚫 Block</button>
+        <button class="block-btn" @click="toggleBlockUser(profile)">
+          🚫 Block
+        </button>
       </div>
     </div>
 
@@ -205,7 +206,6 @@ const toggleFavorite = async (profile) => {
     </div>
   </div>
 </template>
-
 <style scoped>
 .discover {
   padding: 30px;

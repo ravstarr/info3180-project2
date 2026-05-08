@@ -6,7 +6,7 @@ import Profile from '../views/Profile.vue'
 import Matches from '../views/Matches.vue'
 import Messages from '../views/Messages.vue'
 import Search from '../views/Search.vue'
-// import Favorites from '../views/Favorites.vue'
+import FavoritesView from '../views/FavoritesView.vue'
 
 
 const routes = [
@@ -51,12 +51,11 @@ const routes = [
   path: '/search',
   component: Search
 },
-/*
 {
   path: '/favorites',
-  component: Favorites
+  name: 'favorites',
+  component: FavoritesView
 }
-*/
 ]
 
 const router = createRouter({

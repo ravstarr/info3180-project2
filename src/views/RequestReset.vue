@@ -38,7 +38,6 @@ const requestReset = async () => {
     })
     const data = await res.json()
     if (res.ok) {
-      // In a real app, this would send an email. For demo purposes, we will show the token or advise checking email
       message.value = `Success! Use this token to reset (for demo purposes): ${data.token || 'Check your email'}`
     } else {
       error.value = data.error || data.message || 'An error occurred'

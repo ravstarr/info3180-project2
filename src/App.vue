@@ -8,7 +8,7 @@ const isLoggedIn = ref(false)
 
 const checkLogin = async () => {
   try {
-    const res = await fetch('http://127.0.0.1:5001/me', {
+    const res = await fetch('http://127.0.0.1:5000/me', {
       credentials: 'include'
     })
 
@@ -20,7 +20,7 @@ const checkLogin = async () => {
 
 const logout = async () => {
   try {
-    await fetch('http://127.0.0.1:5001/logout', {
+    await fetch('http://127.0.0.1:5000/logout', {
       method: 'POST',
       credentials: 'include'
     })
