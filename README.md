@@ -78,6 +78,9 @@ Table Name: favorites
 | favorite_user_id | Integer (FK) | The profile being bookmarked          |
 | created_at       | DateTime     | Timestamp when the favorite was added |
 
+
+<img width="1876" height="1326" alt="image" src="https://github.com/user-attachments/assets/2674cbfe-ae6d-47fb-a1b6-516b3718ed3e" />
+
 ## Normalization Explanation (3rd Normal Form) 
 
 The database structure adheres to 3rd Normal Form (3NF) to limit the redundacy and prevent data anomalies, such as:
