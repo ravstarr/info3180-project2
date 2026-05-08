@@ -7,11 +7,13 @@ This file creates your application.
 
 from app import app, db, bcrypt
 from flask import render_template, request, jsonify, send_file, session, send_from_directory
-from .models import User, Profile, Match, Message, Favorite
+from .models import User, Profile, Match, Message, Favorite, BlockedUser, PasswordReset
 from functools import wraps
-import os
+from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
+import os
 
 # --- Helper Decorator ---
 def login_required(f):
@@ -20,6 +22,25 @@ def login_required(f):
         if 'user_id' not in session:
             return jsonify({"error": "Login required"}), 401
         return f(*args, **kwargs)
+    return decorated_function
+
+def token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({"error": "Token is missing"}), 401
+
+        try:
+            token = token.split(" ")[1]  # Bearer <token>
+            current_user = User.query.filter_by(id=token).first()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 401
+
+        if not current_user:
+            return jsonify({"error": "Invalid token"}), 401
+
+        return f(current_user.id, *args, **kwargs)
     return decorated_function
 
 @app.route('/profile/<int:id>', methods=['GET'])
@@ -180,7 +201,17 @@ def get_potential_matches():
     interacted_ids = [m.user2_id for m in interacted]
     interacted_ids.append(user_id)
 
-    # get everyone except self and interacted users
+    # exclude blocked users
+    blocks = BlockedUser.query.filter(
+        (BlockedUser.blocker_id == user_id) | (BlockedUser.blocked_id == user_id)
+    ).all()
+    for b in blocks:
+        if b.blocker_id == user_id:
+            interacted_ids.append(b.blocked_id)
+        if b.blocked_id == user_id:
+            interacted_ids.append(b.blocker_id)
+
+    # get everyone except self and interacted/blocked users
     profiles = Profile.query.filter(
         ~Profile.user_id.in_(interacted_ids)
     ).all()
@@ -383,6 +414,7 @@ def get_conversations():
 @app.route('/search', methods=['GET'])
 @login_required
 def search_users():
+    user_id = session['user_id']
     location = request.args.get('location', '').strip()
     min_age = request.args.get('min_age', type=int)
     max_age = request.args.get('max_age', type=int)
@@ -398,6 +430,15 @@ def search_users():
 
     if max_age:
         query = query.filter(Profile.age <= max_age)
+
+    # Exclude blocked users
+    blocks = BlockedUser.query.filter(
+        (BlockedUser.blocker_id == user_id) | (BlockedUser.blocked_id == user_id)
+    ).all()
+    blocked_ids = [b.blocked_id if b.blocker_id == user_id else b.blocker_id for b in blocks]
+
+    if blocked_ids:
+        query = query.filter(~Profile.user_id.in_(blocked_ids))
 
     profiles = query.all()
 
@@ -462,8 +503,10 @@ def get_favorites():
 @login_required
 def toggle_favorite(fav_user_id):
     user_id = session['user_id']
+    if user_id == fav_user_id:
+        return jsonify({"message": "You cannot favorite yourself"}), 400
+
     existing = Favorite.query.filter_by(user_id=user_id, favorite_user_id=fav_user_id).first()
-    
     if existing:
         db.session.delete(existing)
         db.session.commit()
@@ -474,7 +517,65 @@ def toggle_favorite(fav_user_id):
         db.session.commit()
         return jsonify({"message": "Added to favorites"}), 201
 
-# --- End of New Endpoints ---
+@app.route('/block/<int:block_user_id>', methods=['POST'])
+@login_required
+def block_user(block_user_id):
+    current_user_id = session['user_id']
+    if current_user_id == block_user_id:
+        return jsonify({"error": "Cannot block yourself"}), 400
+
+    existing = BlockedUser.query.filter_by(blocker_id=current_user_id, blocked_id=block_user_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"message": "User unblocked"}), 200
+
+    new_block = BlockedUser(blocker_id=current_user_id, blocked_id=block_user_id)
+    db.session.add(new_block)
+    # also remove any existing matches
+    Match.query.filter(
+        (
+            ((Match.user1_id == current_user_id) & (Match.user2_id == block_user_id)) |
+            ((Match.user1_id == block_user_id) & (Match.user2_id == current_user_id))
+        )
+    ).delete()
+
+    db.session.commit()
+    return jsonify({"message": "User blocked"}), 201
+
+@app.route('/auth/request-password-reset', methods=['POST'])
+def request_password_reset():
+    data = request.get_json()
+    email = data.get('email')
+    user = User.query.filter_by(email=email).first()
+
+    if user:
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(hours=1)
+        reset = PasswordReset(user_id=user.id, token=token, expires_at=expires)
+        db.session.add(reset)
+        db.session.commit()
+        # In a real app, send an email here. We just return it for testing.
+        return jsonify({"message": "Password reset token generated", "token": token}), 200
+
+    return jsonify({"message": "If that email exists, a reset link was sent"}), 200
+
+@app.route('/auth/reset-password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    token = data.get('token')
+    new_password = data.get('new_password')
+
+    reset = PasswordReset.query.filter_by(token=token).first()
+    if not reset or reset.expires_at < datetime.utcnow():
+        return jsonify({"error": "Invalid or expired token"}), 400
+
+    user = User.query.get(reset.user_id)
+    user.password_hash = bcrypt.generate_password_hash(new_password).decode('utf-8')
+    db.session.delete(reset)
+    db.session.commit()
+
+    return jsonify({"message": "Password updated successfully"}), 200
 
 # --- End of New Endpoints ---
 
@@ -548,43 +649,3 @@ def get_me():
 @app.route('/')
 def index():
     return jsonify(message="This is the beginning of our API")
-
-
-
-# Here we define a function to collect form errors from Flask-WTF
-def form_errors(form):
-    error_messages = []
-    """Collects form errors"""
-    for field, errors in form.errors.items():
-        for error in errors:
-            message = u"Error in the %s field - %s" % (
-                    getattr(form, field).label.text,
-                    error
-                )
-            error_messages.append(message)
-
-    return error_messages
-
-@app.route('/<file_name>.txt')
-def send_text_file(file_name):
-    """Send your static text file."""
-    file_dot_text = file_name + '.txt'
-    return app.send_static_file(file_dot_text)
-
-
-@app.after_request
-def add_header(response):
-    """
-    Add headers to both force latest IE rendering engine or Chrome Frame,
-    and also tell the browser not to cache the rendered page. If we wanted
-    to we could change max-age to 600 seconds which would be 10 minutes.
-    """
-    response.headers['X-UA-Compatible'] = 'IE=Edge,chrome=1'
-    response.headers['Cache-Control'] = 'public, max-age=0'
-    return response
-
-
-@app.errorhandler(404)
-def page_not_found(error):
-    """Custom 404 page."""
-    return jsonify({"error": "Not Found"}), 404

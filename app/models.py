@@ -62,3 +62,21 @@ class Favorite(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'favorite_user_id', name='unique_favorite_pair'),)
+
+class BlockedUser(db.Model):
+    __tablename__ = 'blocked_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    blocker_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    blocked_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint('blocker_id', 'blocked_id', name='unique_block_pair'),)
+
+class PasswordReset(db.Model):
+    __tablename__ = 'password_resets'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(128), unique=True, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)

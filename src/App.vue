@@ -8,7 +8,7 @@ const isLoggedIn = ref(false)
 
 const checkLogin = async () => {
   try {
-    const res = await fetch('http://127.0.0.1:5000/me', {
+    const res = await fetch('http://127.0.0.1:5001/me', {
       credentials: 'include'
     })
 
@@ -20,7 +20,7 @@ const checkLogin = async () => {
 
 const logout = async () => {
   try {
-    await fetch('http://127.0.0.1:5000/logout', {
+    await fetch('http://127.0.0.1:5001/logout', {
       method: 'POST',
       credentials: 'include'
     })
@@ -61,6 +61,7 @@ onMounted(() => {
           <RouterLink to="/search">Search</RouterLink>
           <RouterLink to="/profile">Profile</RouterLink>
           <RouterLink to="/matches">Matches</RouterLink>
+          <RouterLink to="/favorites">Favorites</RouterLink>
           <RouterLink to="/messages">Messages</RouterLink>
           <button class="logout-btn" @click="logout">Logout</button>
         </template>

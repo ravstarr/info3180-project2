@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 
-const API_BASE_URL = 'http://127.0.0.1:5000'
+const API_BASE_URL = 'http://127.0.0.1:5001'
 
 const profiles = ref([])
 const message = ref('')
@@ -99,6 +99,56 @@ const formatInterests = (interests) => {
   if (typeof interests === 'string') return interests.split(',').map(i => i.trim())
   return []
 }
+
+const toggleBlockUser = async (profile) => {
+  if (!confirm(`Are you sure you want to block ${profile.name}?`)) return
+
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/block/${profile.user_id}`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      message.value = data.message // "User blocked"
+      // Remove the blocked user from the local matches arrays
+      profiles.value = profiles.value.filter(p => p.user_id !== profile.user_id)
+    } else {
+      errorMessage.value = data.error || 'Failed to block user.'
+    }
+  } catch (error) {
+    console.error('Error blocking user:', error)
+    errorMessage.value = 'Could not connect to the backend server.'
+  }
+}
+
+const toggleFavorite = async (profile) => {
+  message.value = ''
+  errorMessage.value = ''
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/favorites/${profile.user_id}`, {
+      method: 'POST',
+      credentials: 'include'
+    })
+
+    const data = await response.json()
+
+    if (response.ok) {
+      message.value = data.message // "Added to favorites" or "Removed from favorites"
+    } else {
+      errorMessage.value = data.error || 'Failed to update favorite.'
+    }
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    errorMessage.value = 'Could not connect to the backend server.'
+  }
+}
 </script>
 
 <template>
@@ -136,10 +186,17 @@ const formatInterests = (interests) => {
           </span>
         </div>
 
+        <button class="favorite-btn" @click="toggleFavorite(profile)">⭐️ Favorite</button>
+
         <div class="buttons">
           <button class="pass" @click="pass(profile)">Pass</button>
           <button class="like" @click="like(profile)">Like</button>
         </div>
+
+        <button class="block-btn" @click="toggleBlockUser(profile)">🚫 Block</button>
+        </div>
+
+        <button class="block-btn" @click="toggleBlockUser(profile)">🚫 Block</button>
       </div>
     </div>
 
@@ -255,6 +312,42 @@ h2 {
 .buttons {
   display: flex;
   gap: 10px;
+  margin-top: 10px;
+}
+
+.favorite-btn {
+  background: #fff;
+  border: 1px solid #ffd6e0;
+  color: #d94f70;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  width: 100%;
+  transition: 0.2s;
+}
+
+.favorite-btn:hover {
+  background: #fff0f3;
+}
+
+.block-btn {
+  background: #fff;
+  border: 1px solid #ccc;
+  color: #888;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: normal;
+  font-size: 0.85rem;
+  width: 100%;
+  margin-top: 10px;
+  transition: 0.2s;
+}
+
+.block-btn:hover {
+  background: #f5f5f5;
+  color: #555;
 }
 
 button {
