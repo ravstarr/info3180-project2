@@ -1,9 +1,11 @@
 <script setup>
 import { ref } from 'vue'
-
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+const API_BASE_URL = 'http://127.0.0.1:5000'
+
 const form = ref({
   name: '',
   email: '',
@@ -21,9 +23,25 @@ const handleRegister = async () => {
   errorMessage.value = ''
   successMessage.value = ''
 
-  const { name, email, password, confirmPassword, age, location, interests } = form.value
+  const {
+    name,
+    email,
+    password,
+    confirmPassword,
+    age,
+    location,
+    interests
+  } = form.value
 
-  if (!name || !email || !password || !confirmPassword || !age || !location || !interests) {
+  if (
+    !name ||
+    !email ||
+    !password ||
+    !confirmPassword ||
+    !age ||
+    !location ||
+    !interests
+  ) {
     errorMessage.value = 'Please fill in all fields.'
     return
   }
@@ -44,35 +62,55 @@ const handleRegister = async () => {
   }
 
   try {
-    // 1. Register User
-    const regResponse = await fetch('/api/register', {
+    // Register User
+    const regResponse = await fetch(`${API_BASE_URL}/register`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        password
+      })
     })
 
     const regData = await regResponse.json()
+
     if (!regResponse.ok) {
       errorMessage.value = regData.error || 'Registration failed.'
       return
     }
 
-    // 2. Login User (to get session for profile creation)
-    const loginResponse = await fetch('/api/login', {
+    // Login User
+    const loginResponse = await fetch(`${API_BASE_URL}/login`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        email,
+        password
+      })
     })
 
+    const loginData = await loginResponse.json()
+
     if (!loginResponse.ok) {
-      errorMessage.value = 'Registration successful, but login failed. Please login manually.'
+      errorMessage.value =
+        loginData.error ||
+        'Registration successful, but login failed.'
       return
     }
 
-    // 3. Create Profile
-    const profResponse = await fetch('/api/profile', {
+    // Create Profile
+    const profResponse = await fetch(`${API_BASE_URL}/profile`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
       body: JSON.stringify({
         name,
         age: parseInt(age),
@@ -81,18 +119,23 @@ const handleRegister = async () => {
       })
     })
 
+    const profData = await profResponse.json()
+
     if (profResponse.ok) {
-      successMessage.value = 'Account created successfully! Redirecting...'
+      successMessage.value =
+        'Account created successfully! Redirecting...'
+
       setTimeout(() => {
         router.push('/')
       }, 1500)
     } else {
-      const profData = await profResponse.json()
-      errorMessage.value = profData.error || 'Failed to create profile.'
+      errorMessage.value =
+        profData.error || 'Failed to create profile.'
     }
   } catch (error) {
-    errorMessage.value = 'An error occurred during registration.'
     console.error(error)
+    errorMessage.value =
+      'An error occurred during registration.'
   }
 }
 </script>
@@ -105,32 +148,56 @@ const handleRegister = async () => {
       <form @submit.prevent="handleRegister" class="register-form">
         <div class="form-group">
           <label>Name</label>
-          <input v-model="form.name" type="text" placeholder="Enter your name" />
+          <input
+            v-model="form.name"
+            type="text"
+            placeholder="Enter your name"
+          />
         </div>
 
         <div class="form-group">
           <label>Email</label>
-          <input v-model="form.email" type="email" placeholder="Enter your email" />
+          <input
+            v-model="form.email"
+            type="email"
+            placeholder="Enter your email"
+          />
         </div>
 
         <div class="form-group">
           <label>Password</label>
-          <input v-model="form.password" type="password" placeholder="Enter password" />
+          <input
+            v-model="form.password"
+            type="password"
+            placeholder="Enter password"
+          />
         </div>
 
         <div class="form-group">
           <label>Confirm Password</label>
-          <input v-model="form.confirmPassword" type="password" placeholder="Confirm password" />
+          <input
+            v-model="form.confirmPassword"
+            type="password"
+            placeholder="Confirm password"
+          />
         </div>
 
         <div class="form-group">
           <label>Age</label>
-          <input v-model="form.age" type="number" placeholder="Enter your age" />
+          <input
+            v-model="form.age"
+            type="number"
+            placeholder="Enter your age"
+          />
         </div>
 
         <div class="form-group">
           <label>Location</label>
-          <input v-model="form.location" type="text" placeholder="Enter your location" />
+          <input
+            v-model="form.location"
+            type="text"
+            placeholder="Enter your location"
+          />
         </div>
 
         <div class="form-group">
@@ -142,10 +209,17 @@ const handleRegister = async () => {
           />
         </div>
 
-        <p v-if="errorMessage" class="error-message">{{ errorMessage }}</p>
-        <p v-if="successMessage" class="success-message">{{ successMessage }}</p>
+        <p v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </p>
 
-        <button type="submit" class="register-button">Register</button>
+        <p v-if="successMessage" class="success-message">
+          {{ successMessage }}
+        </p>
+
+        <button type="submit" class="register-button">
+          Register
+        </button>
       </form>
     </div>
   </div>
