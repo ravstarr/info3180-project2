@@ -79,7 +79,8 @@ Table Name: favorites
 | created_at       | DateTime     | Timestamp when the favorite was added |
 
 
-<img width="1876" height="1326" alt="image" src="https://github.com/user-attachments/assets/2674cbfe-ae6d-47fb-a1b6-516b3718ed3e" />
+<img width="1876" height="1326" alt="image" src="https://github.com/user-attachments/assets/1f3d7ac5-8bc0-44dd-ba6d-d3c294002c14" />
+
 
 ## Normalization Explanation (3rd Normal Form) 
 
